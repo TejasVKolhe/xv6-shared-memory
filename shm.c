@@ -7,24 +7,26 @@
 #include "proc.h"
 #include "spinlock.h"
 #include "stddef.h"
+#define NSHM 64
 
-extern struct {
+extern struct shm{
     struct spinlock lock;
-    uint id;
+    int id;
     int nattached;
-    struct shm_page {
-        char *frame;
-    } shm_pages[64];
-}shminfo[64];
+    int nframes;
+    char *frames[NSHM];
+}shminfo[NSHM];
+
+//have to set the initial values of shminfo
+
 
 void shmget(uint key, size_t size, int shmflg) 
 {
-    cprintf("Hello world");
-    return;
-    /*
-    int NO_OF_PAGES = size / PGSIZE + 1;
-    int found;
-    for (int i = 0; i < 64; i++) 
+    struct proc *curproc = myproc(); 
+    uint sz = curproc->sz;
+
+    int found = -1;
+    for (int i = 0; i < NSHM; i++) 
     {
         if (shminfo[i].id == key) 
         {
@@ -33,42 +35,35 @@ void shmget(uint key, size_t size, int shmflg)
             break;
         }
     }
-    for(int j = 0; j < 64; j++)
+    if (found != -1)
     {
-        char *va = (char*)PGROUNDUP(myproc()->sz);
-
-        mappages(myproc()->pgdir, va, PGSIZE, V2P(shminfo.shm_pages[i].frame), PTE_W | PTE_U);
-        myproc()->sz = (uint)va + PGSIZE;
-        release( shminfo.lock);
-        return i;
-    }
-
-    // If not found, allocate a new shared memory segment
-    for (int i = 0; i < 64; i++) 
-    {
-
-        if  shminfo.shm_pages[i].id == 0) 
+        for(int j = 0; j < shminfo[found].nframes; j++)
         {
-            char *frame = kalloc();
-            if (!frame) 
-            {
-                release( shminfo.lock);
-                return (void*)-1; 
-            }
-            //memset(frame, 0, PGSIZE);
-         shminfo.shm_pages[i].id = key;
-         shminfo.shm_pages[i].frame = frame;
-         shminfo.shm_pages[i].refcnt = 1;
-
-            char *va = (char*)PGROUNDUP(myproc()->sz);
-            mappages(myproc()->pgdir, va, PGSIZE, V2P(frame), PTE_W | PTE_U);
-            myproc()->sz = (uint)va + PGSIZE;
-            release( shminfo.lock);
-            return i;
+            //change permissions here
+            mappages(curproc->pgdir, (char*)sz, PGSIZE, V2P(shminfo->frames[j]), PTE_W|PTE_U);
+            sz += PGSIZE;
+            //release(shminfo[found].lock);
         }
+        curproc->sz = sz;
+        return found;
     }
+    else
+    {
+        for (int i = 0; i < 64; i++)
+        {
+            if (shminfo[i].id == 0)
+            {
+                key = i;
+                break;
+            }
 
-    release( shminfo.lock);
-    return (void*)-1;
-    */
+        }
+        if(size > 0)
+        {
+            if((sz = allocshmuvm(curproc->pgdir, sz, sz + size, &shminfo)) == 0)
+                return -1;
+            shminfo[key].nframes = (size / PGSIZE) + 1;
+        }
+        curproc->sz = sz;
+    }
 }
