@@ -18,6 +18,17 @@ extern struct shm{
 }shminfo[NSHM];
 
 //have to set the initial values of shminfo
+void init_shm(){
+    for(int i = 0; i < NHSM ; i++){
+        initlock(&shminfo[i].lock, "shm_lock");
+        shminfo[i].id = -1;
+        shminfo[i].nattached = 0;
+        shminfo[i].nframes = 0;
+        for(int j = 0 ;j < NSHM ; j++){
+            shminfo[i].frames[j] = NULL;
+        }
+    }
+}
 
 
 void shmget(uint key, size_t size, int shmflg) 
@@ -30,7 +41,7 @@ void shmget(uint key, size_t size, int shmflg)
     {
         if (shminfo[i].id == key) 
         {
-            acquire(shminfo[i].lock);
+            acquire(&shminfo[i].lock);
             found = i;
             break;
         }
@@ -40,18 +51,20 @@ void shmget(uint key, size_t size, int shmflg)
         for(int j = 0; j < shminfo[found].nframes; j++)
         {
             //change permissions here
-            mappages(curproc->pgdir, (char*)sz, PGSIZE, V2P(shminfo->frames[j]), PTE_W|PTE_U);
+            mappages(curproc->pgdir, (char*)sz, PGSIZE, V2P(shminfo[found].frames[j]), PTE_W|PTE_U|PTE_P);
             sz += PGSIZE;
             //release(shminfo[found].lock);
         }
         curproc->sz = sz;
-        return found;
+        shminfo[found].nattached++;
+        release(&shminfo[found].lock);
+        return shminfo[found].id;
     }
     else
     {
         for (int i = 0; i < 64; i++)
         {
-            if (shminfo[i].id == 0)
+            if (shminfo[i].id == -1)
             {
                 key = i;
                 break;
@@ -60,10 +73,13 @@ void shmget(uint key, size_t size, int shmflg)
         }
         if(size > 0)
         {
-            if((sz = allocshmuvm(curproc->pgdir, sz, sz + size, &shminfo)) == 0)
+            if((sz = allocshmuvm(curproc->pgdir, sz, sz + size, &shminfo[key])) == 0)
                 return -1;
             shminfo[key].nframes = (size / PGSIZE) + 1;
+            shminfo[key].id = key;
+            shminfo[key].nattached = 1;
         }
         curproc->sz = sz;
+        return key;
     }
 }

@@ -1,0 +1,19 @@
+SYSCALLS on Shared Memory :
+
+1- int shmget(key, size, shmflg) : returns shm_id of the shared mem seg 
+	creates new seg only when key doesn't exist and IPC_CREAT flag is set.
+	if key is present, returns the existing shm_id
+	struct shmid_ds stores all the meta data of the mem seg
+
+2 -void * shmat(int shmid, const void *shmaddr, int shmflg) : attaches shared mem seg identified by shmid to the Virtual addr space of the calling program.
+	updates the virtual addr space by mapping it to **shm_pages in shmid_ds 
+	updates shm_nattch - incr
+
+3- int shmdt(const void *shmaddr) : detaches the shared mem seg from the process virtual addr space
+	decr shm_nattch
+	if shm_nattch == 0 && IPC_RMID set - delete seg
+
+4 - int shmctl(int shmid, int cmd, struct shmid_ds * buf): control op of mem seg
+	cmd : IPC_STAT -> meta data of seg
+	      IPC_SET -> modify  metadata
+	      IPC_RMID -> deletion flag
