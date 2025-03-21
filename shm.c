@@ -7,6 +7,7 @@
 #include "proc.h"
 #include "spinlock.h"
 #include "stddef.h"
+#include "shm.h"
 #define NSHM 64
 
 extern struct shm{
@@ -48,6 +49,11 @@ void shmget(uint key, size_t size, int shmflg)
     }
     if (found != -1)
     {
+        if((shmflg & IPC_CREAT) && (shmflg & IPC_EXCL)){
+            release(&shminfo[found].lock);
+            return -1;
+        }
+
         for(int j = 0; j < shminfo[found].nframes; j++)
         {
             //change permissions here
@@ -60,9 +66,12 @@ void shmget(uint key, size_t size, int shmflg)
         release(&shminfo[found].lock);
         return shminfo[found].id;
     }
+
+    if(!(shmflg & IPC_CREAT)) return -1;
+
     else
     {
-        for (int i = 0; i < 64; i++)
+        for (int i = 0; i < NSHM; i++)
         {
             if (shminfo[i].id == -1)
             {
