@@ -30,7 +30,7 @@ void shmget(uint key, size_t size, int shmflg)
     {
         if (shminfo[i].id == key) 
         {
-            acquire(shminfo[i].lock);
+            acquire(&shminfo[i].lock);
             found = i;
             break;
         }

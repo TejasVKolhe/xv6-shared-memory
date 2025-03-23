@@ -269,6 +269,7 @@ allocshmuvm(pde_t *pgdir, uint oldsz, uint newsz, struct shm *shminfo)
       return 0;
     }
     memset(mem, 0, PGSIZE);
+    
     shminfo->frames[shminfo->nframes++] = mem;
     
     if(mappages(pgdir, (char*)a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
