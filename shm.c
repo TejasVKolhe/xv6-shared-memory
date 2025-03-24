@@ -20,7 +20,7 @@ extern struct shm{
 
 //have to set the initial values of shminfo
 void init_shm(){
-    for(int i = 0; i < NHSM ; i++){
+    for(int i = 0; i < NSHM ; i++){
         initlock(&shminfo[i].lock, "shm_lock");
         shminfo[i].id = -1;
         shminfo[i].nattached = 0;
@@ -32,7 +32,7 @@ void init_shm(){
 }
 
 
-void shmget(uint key, size_t size, int shmflg) 
+int shmget(uint key, size_t size, int shmflg) 
 {
     struct proc *curproc = myproc(); 
     uint sz = curproc->sz;
@@ -59,10 +59,10 @@ void shmget(uint key, size_t size, int shmflg)
             //change permissions here
             mappages(curproc->pgdir, (char*)sz, PGSIZE, V2P(shminfo[found].frames[j]), PTE_W|PTE_U|PTE_P);
             sz += PGSIZE;
-            //release(shminfo[found].lock);
+
         }
         curproc->sz = sz;
-        shminfo[found].nattached++;
+        //shminfo[found].nattached++;
         release(&shminfo[found].lock);
         return shminfo[found].id;
     }
@@ -86,9 +86,15 @@ void shmget(uint key, size_t size, int shmflg)
                 return -1;
             shminfo[key].nframes = (size / PGSIZE) + 1;
             shminfo[key].id = key;
-            shminfo[key].nattached = 1;
+            //shminfo[key].nattached = 1;
         }
         curproc->sz = sz;
         return key;
     }
+}
+
+void *shmat(int shmid, const void *shmaddr, int shmflg)
+{
+    shminfo[shmid].nattached++;
+    return (void *)shminfo[shmid].frames;
 }
