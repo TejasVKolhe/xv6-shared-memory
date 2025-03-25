@@ -9,6 +9,7 @@
 #include "stddef.h"
 #include "shm.h"
 #define NSHM 64
+#define IPC_PRIVATE 0
 
 extern struct shm{
     struct spinlock lock;
@@ -36,6 +37,30 @@ int shmget(uint key, size_t size, int shmflg)
 {
     struct proc *curproc = myproc(); 
     uint sz = curproc->sz;
+
+    if (key == IPC_PRIVATE)
+    {
+        // here permissions need to be set such that this shared mem segment is accessible to only this process and its related processes
+        for (int i = 0; i < NSHM; i++)
+        {
+            if (shminfo[i].id == -1)
+            {
+                key = i;
+                break;
+            }
+
+        }
+        if(size > 0)
+        {
+            if((sz = allocshmuvm(curproc->pgdir, sz, sz + size, &shminfo[key])) == 0)
+                return -1;
+            shminfo[key].nframes = (size / PGSIZE) + 1;
+            shminfo[key].id = key;
+            //shminfo[key].nattached = 1;
+        }
+        curproc->sz = sz;
+        return key;
+    }
 
     int found = -1;
     for (int i = 0; i < NSHM; i++) 
